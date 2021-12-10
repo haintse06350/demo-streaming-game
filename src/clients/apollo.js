@@ -1,9 +1,9 @@
-import { ApolloClient, createHttpLink, InMemoryCache, NormalizedCacheObject } from "@apollo/client";
+import { ApolloClient, createHttpLink, InMemoryCache } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { Auth } from "aws-amplify";
 
 const httpLink = createHttpLink({
-  uri: process.env.REACT_APP_GRAPHQL_V2 || "https://3xj7i67lte.execute-api.us-east-1.amazonaws.com/dev",
+  uri: process.env.REACT_APP_GRAPHQL_V2 || "https://api.onmostealth.com/",
   includeExtensions: true,
 });
 
@@ -26,7 +26,7 @@ export const getInstance = () => {
 
   client = new ApolloClient({
     link: authLink.concat(httpLink),
-    uri: process.env.REACT_APP_GRAPHQL_V2 || "https://3xj7i67lte.execute-api.us-east-1.amazonaws.com/dev",
+    uri: process.env.REACT_APP_GRAPHQL_V2 || "https://api.onmostealth.com/",
     cache: new InMemoryCache({}),
     defaultOptions: {
       watchQuery: {

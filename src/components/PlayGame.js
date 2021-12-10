@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
 
-const STREAM_ENDPOINT = "https://streaming-api-dev.appland-stream.com";
+const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
 const LIST_GAMES = [
   {
     name: "Tower Builder",
@@ -43,7 +43,7 @@ const LIST_GAMES = [
   {
     name: "Subway Surfers",
     gameId: "152144",
-    momentId: "1b125b82-6e6c-4cdf-813e-0e426671ffc6",
+    momentId: "b72b30ee-aeef-4717-9728-357fb35ea6ae",
   },
 ];
 export const PlayGame = () => {
@@ -59,7 +59,7 @@ export const PlayGame = () => {
     const streamingController = await StreamingController({
       apiEndpoint: STREAM_ENDPOINT,
     });
-    return JSON.stringify(streamingController.getDeviceInfo());
+    return JSON.stringify(await streamingController.getDeviceInfo());
   };
 
   const resumeStream = async () => {
