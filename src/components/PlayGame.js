@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
+import { map } from "lodash";
 
 const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
 
@@ -71,7 +72,7 @@ export const PlayGame = () => {
     const listGames = await GameSessions.listGames(["LIVE"]);
     const cloneListGames = [...listGames];
     const mapMomentToListGames = await Promise.all(
-      cloneListGames.map(async (game) => {
+      map(cloneListGames, async (game) => {
         const listMoments = await GameSessions.getListMoment(
           game.id,
           game.status
@@ -118,7 +119,7 @@ export const PlayGame = () => {
             overflowX: "scroll",
           }}
         >
-          {listGames?.map((game) => (
+          {map(listGames, (game) => (
             <div
               style={{
                 border: "1px solid black",
