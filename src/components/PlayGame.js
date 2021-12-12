@@ -1,59 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
 
 const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
-const LIST_GAMES = [
-  {
-    name: "Tower Builder",
-    gameId: "145350",
-    momentId: "97546c9f-70f3-447a-bb21-1f41e7952607",
-  },
-  {
-    name: "Air Strike",
-    gameId: "152540",
-    momentId: "37ed10b2-c81a-4d28-87e9-b8193da6f728",
-  },
-  {
-    name: "Cut the ropes",
-    gameId: "141753",
-    momentId: "75cdd9a2-121b-4e71-957d-649ae31713f8",
-  },
-  {
-    name: "Fern Flower",
-    gameId: "152265",
-    momentId: "ec44b70f-0c47-4370-a796-126e466ff434",
-  },
-  {
-    name: "Fruit match",
-    gameId: "152549",
-    momentId: "3b540c29-b2f8-4b70-b6b5-8056f5e94ef4",
-  },
-  {
-    name: "Pizza",
-    gameId: "153895",
-    momentId: "e005b4d9-3c7b-4d24-9f31-10a14ea9bfa4",
-  },
-  {
-    name: "Run and Gun",
-    gameId: "152989",
-    momentId: "58385022-1e3b-4c28-87ff-ffbe4b14db90",
-  },
-  {
-    name: "Subway Surfers",
-    gameId: "152144",
-    momentId: "b72b30ee-aeef-4717-9728-357fb35ea6ae",
-  },
-];
+
 export const PlayGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get("username");
   const userId = urlParams.get("userId");
 
+  const [listGames, setListGames] = useState(null);
   const [gameSession, setGameSession] = useState(null);
   const [startPlayGame, setStartPlayGame] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [loadingTime, setLoadingTime] = useState(0);
+  const [isStreamReady, setIsStreamReady] = useState(false);
 
   const getDeviceInfo = async () => {
     const streamingController = await StreamingController({
@@ -70,63 +32,160 @@ export const PlayGame = () => {
     streamController.resume();
   };
 
+  const pauseStream = async () => {
+    const streamController = await StreamingController({
+      apiEndpoint: STREAM_ENDPOINT,
+      edgeNodeId: gameSession?.edgeNodeId,
+    });
+    streamController.pause();
+  };
+
   const onClickPlayGame = async (game) => {
-    setStartPlayGame(true);
+    window.scrollTo(0, 0);
     setSelectedGame(game);
+    setGameSession(null);
+    setIsStreamReady(false);
+    setStartPlayGame(false);
     const deviceInfo = await getDeviceInfo();
     const gameSession = await GameSessions.playSoloMoment({
       device: { info: deviceInfo },
-      gameId: game.gameId,
-      momentId: game.momentId,
-      sessionType: "CASUAL",
+      gameId: game.moment.appId,
+      momentId: game.moment.id,
+      sessionType: game.moment.momentType,
     });
+
     setGameSession(gameSession);
   };
 
   const onStreamEvent = async (event, payload) => {
     if (event === StreamingController.EVENT_STREAM_READY) {
       console.log("stream ready");
+      setIsStreamReady(true);
     } else if (event === "stream-video-can-play") {
-      setStartPlayGame(false);
-      resumeStream();
+      setIsStreamReady(true);
+      pauseStream();
     }
   };
 
+  const getListGamesAndListMoments = async () => {
+    const listGames = await GameSessions.listGames(["LIVE"]);
+    const cloneListGames = [...listGames];
+    const mapMomentToListGames = await Promise.all(
+      cloneListGames.map(async (game) => {
+        const listMoments = await GameSessions.getListMoment(
+          game.id,
+          game.status
+        );
+        return { ...game, moment: listMoments[0] };
+      })
+    );
+    setListGames(mapMomentToListGames);
+  };
+
+  const onStartGame = async () => {
+    console.log("start gane");
+    setStartPlayGame(true);
+    await resumeStream();
+  };
+
+  useEffect(() => {
+    getListGamesAndListMoments();
+  }, []);
+
+  useEffect(() => {
+    if (isStreamReady) window.scrollTo(0, 150);
+  }, [isStreamReady]);
+
   return (
-    <div>
-      <div>Hello {username}</div>
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
       <div
         style={{
-          display: "flex",
           width: "100%",
-          justifyContent: "space-around",
+          display: "flex",
+          flexDirection: "column",
+          "&::-webkit-scrollbar": {
+            display: "none",
+          },
         }}
       >
-        {LIST_GAMES.map((game) => (
-          <div>
-            <p>{game.name}</p>
-            <button onClick={() => onClickPlayGame(game)}>
-              Play this game
+        <p>Hello {username}</p>
+        {!listGames && <p>Fetching list games...</p>}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            width: "100%",
+            overflowX: "scroll",
+          }}
+        >
+          {listGames?.map((game) => (
+            <div
+              style={{
+                border: "1px solid black",
+                padding: "10px",
+                minWidth: 120,
+                display: "flex",
+                alignItems: "center",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <p style={{ margin: 0 }}>{game.title}</p>
+              <button onClick={() => onClickPlayGame(game)}>
+                Play this game
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+        {selectedGame && !isStreamReady && (
+          <p>Loading {selectedGame.title}...</p>
+        )}
+        {isStreamReady && !startPlayGame && gameSession && (
+          <div
+            style={{
+              width: "100%",
+              height: "100vh",
+              background: "rgba(0, 0, 0, 0.5)",
+              opacity: "80%",
+              zIndex: 1000,
+              position: "absolute",
+            }}
+          >
+            <button
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 100,
+                height: 40,
+              }}
+              onClick={onStartGame}
+            >
+              Start
             </button>
           </div>
-        ))}
+        )}
+        <div style={{ width: "100%", maxWidth: "100%", height: "100%" }}>
+          {gameSession && (
+            <StreamingView
+              key={gameSession?.gameSessionId}
+              userClickedPlayAt={new Date().getTime()}
+              apiEndpoint={STREAM_ENDPOINT}
+              edgeNodeId={gameSession?.edgeNodeId}
+              userId={userId}
+              enableControl={true}
+              enableDebug={false}
+              enableFullScreen={false}
+              muted={false}
+              volume={0.5}
+              onEvent={(evt, payload) => onStreamEvent(evt, payload)}
+            ></StreamingView>
+          )}
+        </div>
       </div>
-      {startPlayGame && <p>Loading {selectedGame.name}...</p>}
-      {gameSession && (
-        <StreamingView
-          key={gameSession?.gameSessionId}
-          userClickedPlayAt={new Date().getTime()}
-          apiEndpoint={STREAM_ENDPOINT}
-          edgeNodeId={gameSession?.edgeNodeId}
-          userId={userId}
-          enableControl={true}
-          enableDebug={false}
-          enableFullScreen={false}
-          muted={false}
-          volume={0.5}
-          onEvent={(evt, payload) => onStreamEvent(evt, payload)}
-        ></StreamingView>
-      )}
     </div>
   );
 };
