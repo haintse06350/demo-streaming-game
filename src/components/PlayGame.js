@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import { useStyles } from "./styles.style";
 
 const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
 
@@ -9,7 +12,7 @@ export const PlayGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get("username");
   const userId = urlParams.get("userId");
-
+  const classes = useStyles();
   const [listGames, setListGames] = useState(null);
   const [gameSession, setGameSession] = useState(null);
   const [startPlayGame, setStartPlayGame] = useState(false);
@@ -97,78 +100,37 @@ export const PlayGame = () => {
   }, [isStreamReady]);
 
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          "&::-webkit-scrollbar": {
-            display: "none",
-          },
-        }}
-      >
-        <p>Hello {username}</p>
+    <div className={classes.container}>
+      <div className={classes.listGameContainer}>
+        <Typography variant="h5">Hello {username}</Typography>
         {!listGames && <p>Fetching list games...</p>}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            width: "100%",
-            overflowX: "scroll",
-          }}
-        >
+        <div className={classes.listGame}>
           {listGames?.map((game) => (
-            <div
-              style={{
-                border: "1px solid black",
-                padding: "10px",
-                minWidth: 120,
-                display: "flex",
-                alignItems: "center",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <p style={{ margin: 0 }}>{game.title}</p>
-              <button onClick={() => onClickPlayGame(game)}>
+            <div className={classes.gameItem}>
+              <Typography variant="subtitle1">{game.title}</Typography>
+              <Button variant="outlined" onClick={() => onClickPlayGame(game)}>
                 Play this game
-              </button>
+              </Button>
             </div>
           ))}
         </div>
       </div>
-      <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      <div className={classes.gamePanel}>
         {selectedGame && !isStreamReady && (
           <p>Loading {selectedGame.title}...</p>
         )}
         {isStreamReady && !startPlayGame && gameSession && (
-          <div
-            style={{
-              width: "100%",
-              height: "100vh",
-              background: "rgba(0, 0, 0, 0.5)",
-              opacity: "80%",
-              zIndex: 1000,
-              position: "absolute",
-            }}
-          >
-            <button
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 100,
-                height: 40,
-              }}
+          <div className={classes.startGamePanel}>
+            <Button
+              variant="contained"
+              className={classes.startButton}
               onClick={onStartGame}
             >
               Start
-            </button>
+            </Button>
           </div>
         )}
-        <div style={{ width: "100%", maxWidth: "100%", height: "100%" }}>
+        <div className={classes.streamingView}>
           {gameSession && (
             <StreamingView
               key={gameSession?.gameSessionId}
