@@ -14,6 +14,7 @@ export const PlayGame = () => {
   const [selectedGame, setSelectedGame] = useState(null);
   const [startImmediately, setStartImmediately] = useState(true);
   const [volume, setVolume] = useState(0);
+  const [enableGH, setEnableGH] = useState(false);
 
   const navigate = useNavigate();
 
@@ -46,7 +47,7 @@ export const PlayGame = () => {
     });
 
     navigate(
-      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}`
+      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}&showGameHeader=${enableGH}`
     );
   };
 
@@ -75,6 +76,11 @@ export const PlayGame = () => {
     setStartImmediately(checked);
   };
 
+  const onToggleGH = (e) => {
+    const checked = e.target.checked;
+    setEnableGH(checked);
+  };
+
   const onChangeVolume = (e) => {
     const checked = e.target.checked;
     setVolume(checked ? 0 : 0.5);
@@ -95,9 +101,6 @@ export const PlayGame = () => {
           width: "100%",
           display: "flex",
           flexDirection: "column",
-          "&::-webkit-scrollbar": {
-            display: "none",
-          },
         }}
       >
         <p>Hello {username}</p>
@@ -108,6 +111,9 @@ export const PlayGame = () => {
             flexDirection: "row",
             width: "100%",
             overflowX: "scroll",
+            "&::-webkit-scrollbar": {
+              display: "none",
+            },
           }}
         >
           {listGames?.map((game) => (
@@ -150,6 +156,14 @@ export const PlayGame = () => {
             />
             <label for="sound-off">Sound off</label>
             <br />
+            <input
+              value="game-header"
+              name="game-header"
+              type="checkbox"
+              onChange={(e) => onToggleGH(e)}
+            />
+            <label for="game-header">Enable game header</label>
+            <br />
           </form>
         )}
 
@@ -163,30 +177,30 @@ export const PlayGame = () => {
               justifyContent: "center",
             }}
           >
-            <p style={{ margin: 0, fontWeight: "bold" }}>
+            <b>
               Game Selected:
               <span style={{ marginLeft: 4, fontWeight: "normal" }}>
                 {selectedGame.title}
               </span>
-            </p>
-            <p style={{ margin: 0, fontWeight: "bold" }}>
+            </b>
+            <b>
               Id:
               <span style={{ marginLeft: 4, fontWeight: "normal" }}>
                 {selectedGame.id}
               </span>
-            </p>
-            <p style={{ margin: 0, fontWeight: "bold" }}>
+            </b>
+            <b>
               MomentId:
               <span style={{ marginLeft: 4, fontWeight: "normal" }}>
                 {selectedGame.moment.id}
               </span>
-            </p>
-            <p style={{ margin: 0, fontWeight: "bold" }}>
+            </b>
+            <b>
               SnapshotId:
               <span style={{ marginLeft: 4, fontWeight: "normal" }}>
                 {selectedGame.moment.snapshotId}
               </span>
-            </p>
+            </b>
           </div>
         )}
         {selectedGame && (
