@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
-import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
-
-const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
+import { useNavigate } from "react-router-dom";
+import AuthAmplify from "@aws-amplify/auth";
 
 export const PlayGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -11,11 +10,23 @@ export const PlayGame = () => {
   const userId = urlParams.get("userId");
 
   const [listGames, setListGames] = useState(null);
-  const [gameSession, setGameSession] = useState(null);
-  const [startPlayGame, setStartPlayGame] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [loadingTime, setLoadingTime] = useState(0);
-  const [isStreamReady, setIsStreamReady] = useState(false);
+  const [startImmediately, setStartImmediately] = useState(true);
+  const [volume, setVolume] = useState(0);
+
+  const navigate = useNavigate();
+
+  const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
+
+  const onClickSelectGame = (game) => {
+    setSelectedGame(game);
+  };
+
+  const logout = async () => {
+    await AuthAmplify.signOut();
+    navigate("/");
+  };
 
   const getDeviceInfo = async () => {
     const streamingController = await StreamingController({
@@ -24,47 +35,24 @@ export const PlayGame = () => {
     return JSON.stringify(await streamingController.getDeviceInfo());
   };
 
-  const resumeStream = async () => {
-    const streamController = await StreamingController({
-      apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId: gameSession?.edgeNodeId,
-    });
-    streamController.resume();
-  };
-
-  const pauseStream = async () => {
-    const streamController = await StreamingController({
-      apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId: gameSession?.edgeNodeId,
-    });
-    streamController.pause();
-  };
-
-  const onClickPlayGame = async (game) => {
-    window.scrollTo(0, 0);
-    setSelectedGame(game);
-    setGameSession(null);
-    setIsStreamReady(false);
-    setStartPlayGame(false);
+  const onClickPlayGame = async () => {
+    setIsStarting(true);
     const deviceInfo = await getDeviceInfo();
-    const gameSession = await GameSessions.playSoloMoment({
+    const gS = await GameSessions.playSoloMoment({
       device: { info: deviceInfo },
-      gameId: game.moment.appId,
-      momentId: game.moment.id,
-      sessionType: game.moment.momentType,
+      gameId: selectedGame.moment.appId,
+      momentId: selectedGame.moment.id,
+      sessionType: selectedGame.moment.momentType,
     });
 
-    setGameSession(gameSession);
+    navigate(
+      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}`
+    );
   };
 
-  const onStreamEvent = async (event, payload) => {
-    if (event === StreamingController.EVENT_STREAM_READY) {
-      console.log("stream ready");
-      setIsStreamReady(true);
-    } else if (event === "stream-video-can-play") {
-      setIsStreamReady(true);
-      pauseStream();
-    }
+  const selectSubwaySurfersAsDefault = () => {
+    const ss = listGames?.find((game) => game.id === "152144");
+    setSelectedGame(ss);
   };
 
   const getListGamesAndListMoments = async () => {
@@ -82,10 +70,14 @@ export const PlayGame = () => {
     setListGames(mapMomentToListGames);
   };
 
-  const onStartGame = async () => {
-    console.log("start gane");
-    setStartPlayGame(true);
-    await resumeStream();
+  const onChangeStartMethod = (e) => {
+    const checked = e.target.checked;
+    setStartImmediately(checked);
+  };
+
+  const onChangeVolume = (e) => {
+    const checked = e.target.checked;
+    setVolume(checked ? 0 : 0.5);
   };
 
   useEffect(() => {
@@ -93,8 +85,8 @@ export const PlayGame = () => {
   }, []);
 
   useEffect(() => {
-    if (isStreamReady) window.scrollTo(0, 150);
-  }, [isStreamReady]);
+    listGames && selectSubwaySurfersAsDefault();
+  }, [listGames]);
 
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
@@ -131,60 +123,93 @@ export const PlayGame = () => {
               }}
             >
               <p style={{ margin: 0 }}>{game.title}</p>
-              <button onClick={() => onClickPlayGame(game)}>
-                Play this game
+              <button
+                disabled={isStarting}
+                onClick={() => onClickSelectGame(game)}
+              >
+                Select this game
               </button>
             </div>
           ))}
         </div>
-      </div>
-      <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-        {selectedGame && !isStreamReady && (
-          <p>Loading {selectedGame.title}...</p>
+        {listGames && (
+          <form style={{ marginTop: 20 }}>
+            <input
+              value="start-immediately"
+              name="start-immediately"
+              type="checkbox"
+              onChange={(e) => onChangeStartMethod(e)}
+            />
+            <label for="start-immediately">Start immediately</label>
+            <br />
+            <input
+              value="sound-off"
+              name="sound-off"
+              type="checkbox"
+              onChange={(e) => onChangeVolume(e)}
+            />
+            <label for="sound-off">Sound off</label>
+            <br />
+          </form>
         )}
-        {isStreamReady && !startPlayGame && gameSession && (
+
+        {selectedGame && (
           <div
             style={{
-              width: "100%",
-              height: "100vh",
-              background: "rgba(0, 0, 0, 0.5)",
-              opacity: "80%",
-              zIndex: 1000,
-              position: "absolute",
+              marginTop: 10,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <button
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 100,
-                height: 40,
-              }}
-              onClick={onStartGame}
-            >
-              Start
-            </button>
+            <p style={{ margin: 0, fontWeight: "bold" }}>
+              Game Selected:
+              <span style={{ marginLeft: 4, fontWeight: "normal" }}>
+                {selectedGame.title}
+              </span>
+            </p>
+            <p style={{ margin: 0, fontWeight: "bold" }}>
+              Id:
+              <span style={{ marginLeft: 4, fontWeight: "normal" }}>
+                {selectedGame.id}
+              </span>
+            </p>
+            <p style={{ margin: 0, fontWeight: "bold" }}>
+              MomentId:
+              <span style={{ marginLeft: 4, fontWeight: "normal" }}>
+                {selectedGame.moment.id}
+              </span>
+            </p>
+            <p style={{ margin: 0, fontWeight: "bold" }}>
+              SnapshotId:
+              <span style={{ marginLeft: 4, fontWeight: "normal" }}>
+                {selectedGame.moment.snapshotId}
+              </span>
+            </p>
           </div>
         )}
-        <div style={{ width: "100%", maxWidth: "100%", height: "100%" }}>
-          {gameSession && (
-            <StreamingView
-              key={gameSession?.gameSessionId}
-              userClickedPlayAt={new Date().getTime()}
-              apiEndpoint={STREAM_ENDPOINT}
-              edgeNodeId={gameSession?.edgeNodeId}
-              userId={userId}
-              enableControl={true}
-              enableDebug={false}
-              enableFullScreen={false}
-              muted={false}
-              volume={0.5}
-              onEvent={(evt, payload) => onStreamEvent(evt, payload)}
-            ></StreamingView>
-          )}
-        </div>
+        {selectedGame && (
+          <button
+            disabled={isStarting}
+            style={{ width: "100%", height: 80, margin: "auto", marginTop: 20 }}
+            onClick={onClickPlayGame}
+          >
+            {isStarting ? "Starting..." : "Start"}
+          </button>
+        )}
+        <button
+          style={{
+            width: 100,
+            height: 40,
+            position: "absolute",
+            bottom: 20,
+            right: 10,
+          }}
+          onClick={logout}
+        >
+          Logout
+        </button>
       </div>
     </div>
   );
