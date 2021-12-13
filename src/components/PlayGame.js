@@ -1,24 +1,39 @@
 import React, { useState, useEffect } from "react";
-import StreamingView from "../appland/StreamingView";
 import { GameSessions } from "../models/gameSession";
 import { StreamingController } from "streaming-view-sdk";
+import { useNavigate } from "react-router-dom";
+import AuthAmplify from "@aws-amplify/auth";
+import { useStyles } from "./styles.style";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import { useStyles } from "./styles.style";
-
-const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
+import FormGroup from "@mui/material/FormGroup";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Checkbox from "@mui/material/Checkbox";
 
 export const PlayGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const username = urlParams.get("username");
   const userId = urlParams.get("userId");
-  const classes = useStyles();
+
   const [listGames, setListGames] = useState(null);
-  const [gameSession, setGameSession] = useState(null);
-  const [startPlayGame, setStartPlayGame] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
-  const [loadingTime, setLoadingTime] = useState(0);
-  const [isStreamReady, setIsStreamReady] = useState(false);
+  const [startImmediately, setStartImmediately] = useState(false);
+  const [volume, setVolume] = useState(0);
+
+  const navigate = useNavigate();
+  const classes = useStyles();
+
+  const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
+
+  const onClickSelectGame = (game) => {
+    setSelectedGame(game);
+  };
+
+  const logout = async () => {
+    await AuthAmplify.signOut();
+    navigate("/");
+  };
 
   const getDeviceInfo = async () => {
     const streamingController = await StreamingController({
@@ -27,47 +42,24 @@ export const PlayGame = () => {
     return JSON.stringify(await streamingController.getDeviceInfo());
   };
 
-  const resumeStream = async () => {
-    const streamController = await StreamingController({
-      apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId: gameSession?.edgeNodeId,
-    });
-    streamController.resume();
-  };
-
-  const pauseStream = async () => {
-    const streamController = await StreamingController({
-      apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId: gameSession?.edgeNodeId,
-    });
-    streamController.pause();
-  };
-
-  const onClickPlayGame = async (game) => {
-    window.scrollTo(0, 0);
-    setSelectedGame(game);
-    setGameSession(null);
-    setIsStreamReady(false);
-    setStartPlayGame(false);
+  const onClickPlayGame = async () => {
+    setIsStarting(true);
     const deviceInfo = await getDeviceInfo();
-    const gameSession = await GameSessions.playSoloMoment({
+    const gS = await GameSessions.playSoloMoment({
       device: { info: deviceInfo },
-      gameId: game.moment.appId,
-      momentId: game.moment.id,
-      sessionType: game.moment.momentType,
+      gameId: selectedGame.moment.appId,
+      momentId: selectedGame.moment.id,
+      sessionType: selectedGame.moment.momentType,
     });
 
-    setGameSession(gameSession);
+    navigate(
+      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}`
+    );
   };
 
-  const onStreamEvent = async (event, payload) => {
-    if (event === StreamingController.EVENT_STREAM_READY) {
-      console.log("stream ready");
-      setIsStreamReady(true);
-    } else if (event === "stream-video-can-play") {
-      setIsStreamReady(true);
-      pauseStream();
-    }
+  const selectSubwaySurfersAsDefault = () => {
+    const ss = listGames?.find((game) => game.id === "152144");
+    setSelectedGame(ss);
   };
 
   const getListGamesAndListMoments = async () => {
@@ -85,10 +77,14 @@ export const PlayGame = () => {
     setListGames(mapMomentToListGames);
   };
 
-  const onStartGame = async () => {
-    console.log("start gane");
-    setStartPlayGame(true);
-    await resumeStream();
+  const onChangeStartMethod = (e) => {
+    const checked = e.target.checked;
+    setStartImmediately(checked);
+  };
+
+  const onChangeVolume = (e) => {
+    const checked = e.target.checked;
+    setVolume(checked ? 0 : 0.5);
   };
 
   useEffect(() => {
@@ -96,57 +92,86 @@ export const PlayGame = () => {
   }, []);
 
   useEffect(() => {
-    if (isStreamReady) window.scrollTo(0, 150);
-  }, [isStreamReady]);
+    listGames && selectSubwaySurfersAsDefault();
+  }, [listGames]);
 
   return (
     <div className={classes.container}>
       <div className={classes.listGameContainer}>
         <Typography variant="h5">Hello {username}</Typography>
-        {!listGames && <p>Fetching list games...</p>}
+        {!listGames && <Typography>Fetching list games...</Typography>}
         <div className={classes.listGame}>
           {listGames?.map((game) => (
             <div className={classes.gameItem}>
               <Typography variant="subtitle1">{game.title}</Typography>
-              <Button variant="outlined" onClick={() => onClickPlayGame(game)}>
-                Play this game
+              <Button
+                classes={{ root: classes.selectGameButton }}
+                variant="outlined"
+                disabled={isStarting}
+                onClick={() => onClickSelectGame(game)}
+              >
+                Select this game
               </Button>
             </div>
           ))}
         </div>
-      </div>
-      <div className={classes.gamePanel}>
-        {selectedGame && !isStreamReady && (
-          <p>Loading {selectedGame.title}...</p>
+        {listGames && (
+          <FormGroup className={classes.form}>
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Start immediately"
+              onChange={(e) => onChangeStartMethod(e)}
+            />
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Turn off game sound"
+              onChange={(e) => onChangeVolume(e)}
+            />
+            <FormControlLabel
+              control={<Checkbox />}
+              label="Enable Game Header"
+            />
+            <FormControlLabel control={<Checkbox />} label="Enable Timer" />
+          </FormGroup>
         )}
-        {isStreamReady && !startPlayGame && gameSession && (
-          <div className={classes.startGamePanel}>
-            <Button
-              variant="contained"
-              className={classes.startButton}
-              onClick={onStartGame}
-            >
-              Start
-            </Button>
+
+        {selectedGame && (
+          <div className={classes.selectedGame}>
+            <Typography>
+              Game Selected:
+              <span>{selectedGame.title}</span>
+            </Typography>
+            <Typography>
+              Id:
+              <span>{selectedGame.id}</span>
+            </Typography>
+            <Typography>
+              MomentId:
+              <span>{selectedGame.moment.id}</span>
+            </Typography>
+            <Typography>
+              SnapshotId:
+              <span>{selectedGame.moment.snapshotId}</span>
+            </Typography>
           </div>
         )}
-        <div className={classes.streamingView}>
-          {gameSession && (
-            <StreamingView
-              key={gameSession?.gameSessionId}
-              userClickedPlayAt={new Date().getTime()}
-              apiEndpoint={STREAM_ENDPOINT}
-              edgeNodeId={gameSession?.edgeNodeId}
-              userId={userId}
-              enableControl={true}
-              enableDebug={false}
-              enableFullScreen={false}
-              muted={false}
-              volume={0.5}
-              onEvent={(evt, payload) => onStreamEvent(evt, payload)}
-            ></StreamingView>
-          )}
-        </div>
+        {selectedGame && (
+          <Button
+            variant="outlined"
+            disabled={isStarting}
+            className={classes.startButton}
+            onClick={onClickPlayGame}
+          >
+            {isStarting ? "Starting..." : "Start"}
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          className={classes.logoutButton}
+          onClick={logout}
+        >
+          Logout
+        </Button>
       </div>
     </div>
   );

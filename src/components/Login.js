@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Auth } from "@aws-amplify/auth";
 import AuthAmplify from "@aws-amplify/auth";
@@ -71,6 +71,16 @@ export const Login = () => {
   };
 
   const onError = (errors, e) => console.log(errors, e);
+
+  useEffect(() => {
+    AuthAmplify.currentAuthenticatedUser().then((user) => {
+      if (user) {
+        navigate(
+          `/play-game?username=${user.attributes.preferred_username}&userId=${user.username}`
+        );
+      }
+    });
+  }, []);
 
   return (
     <div style={containerStyles}>
