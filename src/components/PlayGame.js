@@ -20,6 +20,7 @@ export const PlayGame = () => {
   const [selectedGame, setSelectedGame] = useState(null);
   const [startImmediately, setStartImmediately] = useState(false);
   const [volume, setVolume] = useState(0);
+  const [showGameHeader, setShowGameHeader] = useState(false);
 
   const navigate = useNavigate();
   const classes = useStyles();
@@ -53,7 +54,7 @@ export const PlayGame = () => {
     });
 
     navigate(
-      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}`
+      `/streaming-view?userId=${userId}&gameSessionId=${gS.gameSessionId}&edgeNodeId=${gS.edgeNodeId}&gameName=${selectedGame.title}&startImmediately=${startImmediately}&volume=${volume}&showGameHeader=${showGameHeader}`
     );
   };
 
@@ -80,6 +81,11 @@ export const PlayGame = () => {
   const onChangeStartMethod = (e) => {
     const checked = e.target.checked;
     setStartImmediately(checked);
+  };
+
+  const onChangeShowGH = (e) => {
+    const checked = e.target.checked;
+    setShowGameHeader(checked);
   };
 
   const onChangeVolume = (e) => {
@@ -119,7 +125,7 @@ export const PlayGame = () => {
           <FormGroup className={classes.form}>
             <FormControlLabel
               control={<Checkbox />}
-              label="Start immediately"
+              label="Start playing immediately"
               onChange={(e) => onChangeStartMethod(e)}
             />
             <FormControlLabel
@@ -130,6 +136,7 @@ export const PlayGame = () => {
             <FormControlLabel
               control={<Checkbox />}
               label="Enable Game Header"
+              onChange={(e) => onChangeShowGH(e)}
             />
             <FormControlLabel control={<Checkbox />} label="Enable Timer" />
           </FormGroup>

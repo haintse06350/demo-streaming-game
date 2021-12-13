@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import StreamingView from "../appland/StreamingView";
 import { StreamingController } from "streaming-view-sdk";
-import Button from "@mui/material/Button";
+import { CircularProgress, Typography, Button } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import { useStyles } from "./styles.style";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SettingsBackupRestoreIcon from "@mui/icons-material/SettingsBackupRestore";
+import { GameSessions } from "../models/gameSession";
 
 const StreamingGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -12,9 +16,16 @@ const StreamingGame = () => {
   const volume = parseInt(urlParams.get("volume"));
   const gameName = urlParams.get("gameName");
   const startImmediately = urlParams.get("startImmediately") === "true";
+  const showGameHeader = urlParams.get("showGameHeader") === "true";
 
   const [isStreamReady, setIsStreamReady] = useState(false);
   const [startPlayGame, setStartPlayGame] = useState(false);
+  const [isReplay, setIsReplay] = useState(false);
+  const [isEnd, setIsEnd] = useState(false);
+  const [score, setScore] = useState(0);
+  const [gameSession, setGameSession] = useState({ gameSessionId, edgeNodeId });
+  const navigate = useNavigate();
+
   const classes = useStyles();
 
   const STREAM_ENDPOINT = "https://streaming-api.appland-stream.com";
@@ -22,60 +33,164 @@ const StreamingGame = () => {
   const resumeStream = async () => {
     const streamController = await StreamingController({
       apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId,
+      edgeNodeId: gameSession?.edgeNodeId,
     });
-    streamController.resume();
+    await streamController.resume();
   };
 
   const pauseStream = async () => {
     const streamController = await StreamingController({
       apiEndpoint: STREAM_ENDPOINT,
-      edgeNodeId,
+      edgeNodeId: gameSession?.edgeNodeId,
     });
-    streamController.pause();
+    await streamController.pause();
+  };
+
+  const getDeviceInfo = async () => {
+    const streamingController = await StreamingController({
+      apiEndpoint: STREAM_ENDPOINT,
+    });
+    return JSON.stringify(await streamingController.getDeviceInfo());
+  };
+
+  const replayMoment = async () => {
+    setScore(0);
+    setGameSession(null);
+    setIsReplay(true);
+    const deviceInfo = await getDeviceInfo();
+    const res = await GameSessions.playSoloMoment({
+      gameSessionId: gameSession?.gameSessionId,
+      device: { info: deviceInfo },
+    });
+    const streamController = await StreamingController({
+      apiEndpoint: STREAM_ENDPOINT,
+      edgeNodeId: res.edgeNodeId,
+    });
+
+    await streamController.pause();
+    setGameSession(res);
   };
 
   const onStartGame = async () => {
-    console.log("start gane");
+    console.log("start game");
     setStartPlayGame(true);
+    setIsReplay(false);
     await resumeStream();
   };
-  console.log("startImmediately", startImmediately);
+
   const onStreamEvent = async (event, payload) => {
     if (event === StreamingController.EVENT_STREAM_READY) {
       console.log("stream ready");
       setIsStreamReady(true);
     } else if (event === "stream-video-can-play") {
       setIsStreamReady(true);
-      if (!startImmediately) {
+      if (!startImmediately || isReplay) {
         pauseStream();
       } else {
         resumeStream();
       }
+    } else if (event === "moment-detector-event") {
+      const payloadParsed = JSON.parse(payload.payload);
+      let currentScore;
+      let stateIdFromPayload;
+      switch (payloadParsed?.event_type) {
+        case "score":
+          currentScore = Math.floor(payloadParsed?.data?.score);
+          stateIdFromPayload = payloadParsed?.data?.stateId;
+          // setStateId(stateIdFromPayload);
+          if (currentScore) {
+            setScore(currentScore);
+          }
+          break;
+        case "calculate":
+          setIsEnd(true);
+          setStartPlayGame(false);
+          setIsStreamReady(false);
+          break;
+        case "final_score":
+          break;
+      }
     }
   };
 
+  const gameHeader = () => {
+    return (
+      <div className={classes.gameHeader}>
+        <div
+          className={classes.backIcon}
+          onClick={() => {
+            navigate(-1);
+          }}
+        >
+          <ArrowBackIcon />
+        </div>
+        <div className={classes.score}>
+          <Typography variant="h4">{score}</Typography>
+        </div>
+        <div className={classes.replay} onClick={replayMoment}>
+          <SettingsBackupRestoreIcon />
+        </div>
+      </div>
+    );
+  };
+
+  const showPlayButton =
+    (isStreamReady && !startPlayGame && !startImmediately && gameSession) ||
+    (isReplay && gameSession && isStreamReady);
+  const showReplayButton = isEnd && !startPlayGame && !isReplay;
+
   return (
     <div className={classes.gamePanel}>
-      {!isStreamReady && <p>Loading {gameName}...</p>}
-      {isStreamReady && !startPlayGame && !startImmediately && (
+      {showGameHeader && gameHeader()}
+      {!isStreamReady && !isEnd && (
+        <div className={classes.loading}>
+          <Typography variant="h6">Loading {gameName}...</Typography>
+        </div>
+      )}
+      {showPlayButton && (
         <div className={classes.startGamePanel}>
           <Button
             variant="contained"
             className={classes.startGameButton}
             onClick={onStartGame}
           >
-            Start
+            Play
           </Button>
         </div>
       )}
+      {showReplayButton && (
+        <div className={classes.startGamePanel}>
+          <Button
+            variant="contained"
+            className={classes.replayButton}
+            onClick={replayMoment}
+          >
+            RePlay this moment
+          </Button>
+          <Button
+            className={classes.backButton}
+            variant="contained"
+            onClick={() => {
+              navigate(-1);
+            }}
+          >
+            Back
+          </Button>
+        </div>
+      )}
+      {isReplay && !isStreamReady && (
+        <div className={classes.loading}>
+          <CircularProgress size={30} />
+          <Typography variant="subtitle1">Loading {gameName}...</Typography>
+        </div>
+      )}
       <div className={classes.streamingView}>
-        {gameSessionId && (
+        {gameSession && (
           <StreamingView
-            key={gameSessionId}
+            key={gameSession.gameSessionId}
             userClickedPlayAt={new Date().getTime()}
             apiEndpoint={STREAM_ENDPOINT}
-            edgeNodeId={edgeNodeId}
+            edgeNodeId={gameSession.edgeNodeId}
             userId={userId}
             enableControl={true}
             enableDebug={false}
