@@ -123,6 +123,7 @@ export const useStyles = makeStyles(
       width: "100%",
       maxWidth: "100%",
       height: "100%",
+      zIndex: 900,
     },
     gameHeader: {
       width: "100%",
@@ -141,6 +142,12 @@ export const useStyles = makeStyles(
     },
     replay: {
       marginRight: 10,
+    },
+    gameImg: {
+      width: "100%",
+      height: "100vh",
+      position: "absolute",
+      opacity: "80%",
     },
   },
   { index: 1 }

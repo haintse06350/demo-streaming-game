@@ -6,7 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { useStyles } from "./styles.style";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SettingsBackupRestoreIcon from "@mui/icons-material/SettingsBackupRestore";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { GameSessions } from "../models/gameSession";
+import Timer from "./Timer";
 
 const StreamingGame = () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -22,6 +24,7 @@ const StreamingGame = () => {
   const [startPlayGame, setStartPlayGame] = useState(false);
   const [isReplay, setIsReplay] = useState(false);
   const [isEnd, setIsEnd] = useState(false);
+  const [resetTime, setResetTime] = useState(false);
   const [score, setScore] = useState(0);
   const [gameSession, setGameSession] = useState({ gameSessionId, edgeNodeId });
   const navigate = useNavigate();
@@ -106,6 +109,7 @@ const StreamingGame = () => {
           setIsEnd(true);
           setStartPlayGame(false);
           setIsStreamReady(false);
+          setResetTime(true);
           break;
         case "final_score":
           break;
@@ -126,6 +130,7 @@ const StreamingGame = () => {
         </div>
         <div className={classes.score}>
           <Typography variant="h4">{score}</Typography>
+          <Timer isPause={!startPlayGame} resetTime={resetTime} />
         </div>
         <div className={classes.replay} onClick={replayMoment}>
           <SettingsBackupRestoreIcon />
@@ -141,6 +146,13 @@ const StreamingGame = () => {
 
   return (
     <div className={classes.gamePanel}>
+      {Array.from(new Array(10)).map((o, index) => (
+        <img
+          id={index}
+          className={classes.gameImg}
+          src={`https://assets.onmostealth.com/assets/games/152144/GameInfo/Image_750x522.png?v=${Date.now()}`}
+        />
+      ))}
       {showGameHeader && gameHeader()}
       {!isStreamReady && !isEnd && (
         <div className={classes.loading}>
